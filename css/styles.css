@@ -109,3 +109,14 @@ th:first-child, td:first-child { text-align: left; }
 
 .explain { margin-top: 12px; padding: 12px; border-radius: 8px; background: var(--warn-bg); }
 .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: .85rem; color: var(--muted); margin-top: 8px; }
+
+.modal {
+  position: fixed; inset: 0; z-index: 100; padding: 16px;
+  display: grid; place-items: center; background: rgba(0, 0, 0, .45);
+}
+.modal-card {
+  background: var(--card); color: var(--text); border: 1px solid var(--border);
+  border-radius: 12px; padding: 20px; width: 100%; max-width: 360px;
+}
+.modal-card p { margin-top: 0; font-size: 1.05rem; }
+.timeup { padding: 10px 12px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); font-weight: 600; }

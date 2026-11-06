@@ -28,6 +28,28 @@
     return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
+  // Sayfa içi onay penceresi (tarayıcının confirm/alert pencereleri
+  // bazı ortamlarda, örneğin gömülü sayfalarda, engellenebiliyor).
+  function closeAsk() { document.querySelectorAll(".modal").forEach((m) => m.remove()); }
+  function ask(msg, yesText, onYes) {
+    closeAsk();
+    const box = document.createElement("div");
+    box.className = "modal";
+    box.innerHTML = `
+      <div class="modal-card" role="dialog" aria-modal="true">
+        <p>${esc(msg)}</p>
+        <div class="row">
+          <button class="primary" data-yes>${esc(yesText)}</button>
+          <button data-no>Vazgeç</button>
+        </div>
+      </div>`;
+    document.body.appendChild(box);
+    box.querySelector("[data-yes]").addEventListener("click", () => { closeAsk(); onYes(); });
+    box.querySelector("[data-no]").addEventListener("click", closeAsk);
+    box.addEventListener("click", (e) => { if (e.target === box) closeAsk(); });
+    box.querySelector("[data-yes]").focus();
+  }
+
   function shuffle(arr) {
     const a = arr.slice();
     for (let i = a.length - 1; i > 0; i--) {
@@ -196,7 +218,7 @@
     }
     const clr = app.querySelector("#clearHistory");
     if (clr) clr.addEventListener("click", () => {
-      if (confirm("Tüm geçmiş silinsin mi?")) { store.del(STORE_HISTORY); renderHome(); }
+      ask("Tüm geçmiş silinsin mi?", "Sil", () => { store.del(STORE_HISTORY); renderHome(); });
     });
   }
 
@@ -208,7 +230,7 @@
     exam = state;
     save();
     startTimer();
-    renderQuestion();
+    if (exam) renderQuestion();
   }
 
   function save() { if (exam) store.set(STORE_ACTIVE, exam); }
@@ -220,10 +242,10 @@
       const left = (exam.endsAt - Date.now()) / 1000;
       timerEl.textContent = "⏱ " + fmtTime(left);
       timerEl.classList.toggle("low", left <= 60);
-      if (left <= 0) { alert("Süre doldu! Sınav sonlandırılıyor."); finishExam(); }
+      if (left <= 0) finishExam(true);
     };
     update();
-    tick = setInterval(update, 1000);
+    if (exam) tick = setInterval(update, 1000); // süre zaten dolduysa sınav bitti
   }
 
   function stopTimer() {
@@ -291,7 +313,7 @@
     app.querySelector("#finish").addEventListener("click", () => {
       const empty = exam.ids.length - Object.keys(exam.answers).length;
       const msg = empty ? `${empty} boş sorun var. Yine de bitirmek istiyor musun?` : "Sınavı bitirmek istiyor musun?";
-      if (confirm(msg)) finishExam();
+      ask(msg, "Bitir", () => finishExam());
     });
   }
 
@@ -312,6 +334,7 @@
 
   document.addEventListener("keydown", (e) => {
     if (!exam || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (document.querySelector(".modal")) { if (e.key === "Escape") closeAsk(); return; }
     const k = e.key.toUpperCase();
     const idx = LETTERS.indexOf(k);
     if (idx >= 0) choose(idx);
@@ -319,11 +342,13 @@
     else if (e.key === "ArrowRight") go(exam.current + 1);
   });
 
-  function finishExam() {
+  function finishExam(timeUp) {
     if (!exam) return;
+    closeAsk();
     stopTimer();
     const result = score(exam.ids, exam.answers, exam.penalty);
     result.date = Date.now();
+    result.timeUp = !!timeUp;
     result.durationSec = Math.round((Math.min(Date.now(), exam.endsAt) - exam.startedAt) / 1000);
     const history = store.get(STORE_HISTORY, []);
     history.unshift({ date: result.date, total: result.total, correct: result.correct, wrong: result.wrong, empty: result.empty, net: result.net });
@@ -340,6 +365,7 @@
     app.innerHTML = `
       <div class="card">
         <h2>Sonuç</h2>
+        ${r.timeUp ? `<p class="timeup">Süre doldu, sınav otomatik olarak bitirildi.</p>` : ""}
         <div class="stats">
           <div class="stat"><div class="v">${r.net}</div><div class="k">Net</div></div>
           <div class="stat"><div class="v">%${r.percent}</div><div class="k">Başarı</div></div>
